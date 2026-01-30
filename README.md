@@ -1,302 +1,306 @@
-# Slooze Data Engineering Pipeline
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.8+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/License-Private-red.svg" alt="License">
+  <img src="https://img.shields.io/badge/Status-Complete-brightgreen.svg" alt="Status">
+</p>
+
+<h1 align="center">Slooze Data Engineering Challenge</h1>
 
 <p align="center">
-  <img src="public/FFFFFF-1.png" alt="Slooze Logo" width="300">
+  <strong>Production-Grade B2B Marketplace Intelligence Pipeline</strong>
 </p>
 
 <p align="center">
-  <strong>🚀 Production-Grade B2B Marketplace Intelligence Pipeline</strong>
-</p>
-
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#analysis">Analysis</a>
+  <em>A comprehensive data collection and analysis solution demonstrating advanced data engineering practices</em>
 </p>
 
 ---
 
-## 📌 Challenge Overview
+## Table of Contents
 
-This repository contains a **comprehensive solution** for the Slooze Data Engineering Take-Home Challenge, demonstrating:
-
-- **Part A**: Advanced web scraping/data collection from B2B marketplaces
-- **Part B**: In-depth Exploratory Data Analysis with interactive visualizations
-
----
-
-## ✨ Features
-
-### 🕷️ Advanced Data Collection
-- **Async HTTP Client** - Concurrent requests using `aiohttp` for high performance
-- **Intelligent Rate Limiting** - Token bucket algorithm respects target sites
-- **User Agent Rotation** - Avoids detection with realistic browser fingerprints
-- **Retry Logic** - Exponential backoff with `tenacity` for resilience
-- **Data Validation** - Pydantic models ensure data quality at ingestion
-- **Multi-Source Support** - Extensible parser architecture for different marketplaces
-
-### 📊 Comprehensive EDA
-- **Statistical Analysis** - Distributions, correlations, outlier detection
-- **Interactive Visualizations** - Plotly dashboards for exploration
-- **NLP Text Analysis** - TF-IDF keywords, word clouds
-- **ML Clustering** - K-Means price segmentation
-- **Auto-Generated Insights** - Business intelligence extraction
-- **Beautiful HTML Reports** - Premium, shareable reports
-
-### 🏗️ Production-Grade Architecture
-- **SQLite Database** - Persistent storage with SQLAlchemy ORM
-- **Configuration Management** - Centralized, environment-aware config
-- **Rich CLI** - Beautiful command-line interface with Typer
-- **Comprehensive Logging** - Structured logs for debugging
-- **Type Safety** - Full type hints throughout
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Project Structure](#project-structure)
+- [Sample Outputs](#sample-outputs)
+- [Design Decisions](#design-decisions)
+- [Author](#author)
 
 ---
 
-## 🚀 Quick Start
+## Overview
+
+This repository contains my solution for the **Slooze Data Engineering Take-Home Challenge**, encompassing:
+
+- **Part A**: Advanced web scraping and data collection from B2B marketplaces
+- **Part B**: Comprehensive Exploratory Data Analysis with interactive visualizations
+
+The solution is designed with production-readiness in mind, featuring robust error handling, data validation, and scalable architecture patterns.
+
+---
+
+## Features
+
+### Data Collection Engine
+
+| Feature | Description |
+|---------|-------------|
+| **Asynchronous Scraping** | High-performance concurrent requests using `aiohttp` |
+| **Intelligent Rate Limiting** | Token bucket algorithm to respect target site policies |
+| **User-Agent Rotation** | Automatic rotation to avoid detection |
+| **Retry Logic** | Exponential backoff with configurable attempts |
+| **Schema Validation** | Pydantic models ensure data integrity at ingestion |
+| **Quality Scoring** | Automated data completeness assessment |
+| **Resilient Fallback** | Mock data generation when scraping is blocked |
+
+### Analytics & Visualization
+
+| Feature | Description |
+|---------|-------------|
+| **Statistical Analysis** | Distribution analysis, outlier detection, correlation matrices |
+| **Market Segmentation** | K-Means clustering for price-based product segments |
+| **NLP Processing** | TF-IDF keyword extraction and word cloud generation |
+| **Interactive Dashboards** | Plotly-powered charts with hover details and filtering |
+| **Executive Reports** | Auto-generated HTML reports with key insights |
+| **Regional Analysis** | Geographic distribution of suppliers and products |
+
+### Engineering Excellence
+
+| Feature | Description |
+|---------|-------------|
+| **Type Safety** | Full type hints with Pydantic validation |
+| **Database Layer** | SQLAlchemy ORM with batch operations |
+| **CLI Interface** | Rich terminal UI with progress indicators |
+| **Structured Logging** | Comprehensive logging for debugging |
+| **Modular Design** | Clean separation of concerns |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         CLI Application                              │
+│                      (Typer + Rich Console)                          │
+└───────────────────┬─────────────────────────┬───────────────────────┘
+                    │                         │
+                    ▼                         ▼
+      ┌─────────────────────────┐   ┌─────────────────────────────┐
+      │    Data Collector       │   │      EDA Engine             │
+      │                         │   │                             │
+      │  ┌─────────────────┐    │   │  ┌───────────────────────┐  │
+      │  │ Async HTTP      │    │   │  │ Statistical Analyzer  │  │
+      │  │ Rate Limiter    │    │   │  │ Visualization Engine  │  │
+      │  │ Parser Factory  │    │   │  │ NLP Processor         │  │
+      │  │ Mock Generator  │    │   │  │ Clustering Engine     │  │
+      │  └─────────────────┘    │   │  │ Report Generator      │  │
+      │                         │   │  └───────────────────────┘  │
+      │  ┌─────────────────┐    │   │                             │
+      │  │ Pydantic Models │    │   │                             │
+      │  │ (Validation)    │    │   │                             │
+      │  └─────────────────┘    │   │                             │
+      └───────────┬─────────────┘   └──────────────┬──────────────┘
+                  │                                │
+                  ▼                                ▼
+      ┌───────────────────────────────────────────────────────────┐
+      │                    Database Layer                          │
+      │                  (SQLAlchemy ORM)                          │
+      │  ┌─────────────────────────────────────────────────────┐   │
+      │  │              SQLite Database                        │   │
+      │  │   • Products Table (indexed)                        │   │
+      │  │   • Scraping Runs Table (audit log)                 │   │
+      │  └─────────────────────────────────────────────────────┘   │
+      └───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Technology Stack
+
+| Category | Technologies |
+|----------|--------------|
+| **Core Language** | Python 3.8+ |
+| **Async HTTP** | aiohttp, asyncio |
+| **Web Scraping** | BeautifulSoup4, lxml |
+| **Data Validation** | Pydantic |
+| **Database** | SQLite, SQLAlchemy |
+| **Data Processing** | Pandas, NumPy, SciPy |
+| **Machine Learning** | Scikit-learn |
+| **NLP** | NLTK, WordCloud |
+| **Visualization** | Plotly, Matplotlib, Seaborn |
+| **CLI Framework** | Typer, Rich |
+| **Templating** | Jinja2 |
+| **Resilience** | Tenacity |
+
+---
+
+## Installation
 
 ### Prerequisites
-- Python 3.8+
-- Windows/Linux/macOS
 
-### Installation
+- Python 3.8 or higher
+- pip package manager
+
+### Setup
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd Slooze
+git clone https://github.com/Spandanamk264/Slooze_Data_Engineer_Task.git
+cd Slooze_Data_Engineer_Task
 
 # Create virtual environment
 python -m venv env
 
-# Activate (Windows)
+# Activate virtual environment
+# Windows:
 .\env\Scripts\activate
-
-# Activate (Linux/macOS)
+# Linux/macOS:
 source env/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### Run the Pipeline
+---
+
+## Usage
+
+### Quick Start (Recommended)
+
+Run the complete pipeline with a single command:
 
 ```bash
-# Run complete pipeline with mock data (recommended for demo)
 python src/cli.py pipeline --mock
+```
 
-# Or run individual steps:
-# 1. Collect data
+This will:
+1. Generate realistic mock data (300 products across 5 categories)
+2. Validate and store data in SQLite database
+3. Run comprehensive EDA
+4. Generate interactive visualizations
+5. Create HTML analysis report
+
+### Individual Commands
+
+```bash
+# Data Collection only
 python src/cli.py collect --mock
 
-# 2. Run analysis
+# Analysis only (requires data)
 python src/cli.py analyze
 
-# Check status
+# Check pipeline status
 python src/cli.py status
+
+# Clear all data
+python src/cli.py clean
 ```
+
+### Command Options
+
+| Command | Flag | Description |
+|---------|------|-------------|
+| `collect` | `--mock` | Use mock data generation instead of live scraping |
+| `pipeline` | `--mock` | Run full pipeline with mock data |
+| `status` | - | Display current data statistics |
+| `clean` | - | Remove all collected data and outputs |
 
 ---
 
-## 🏗️ Architecture
+## Project Structure
 
 ```
-D:\Slooze\
-├── 📁 src/
-│   ├── cli.py              # Typer CLI application
-│   ├── config.py           # Centralized configuration
-│   ├── models.py           # Pydantic data models
-│   ├── database.py         # SQLAlchemy ORM layer
-│   ├── collector.py        # Advanced async scraper
-│   └── eda_analysis.py     # Comprehensive EDA engine
+Slooze_Data_Engineer_Task/
 │
-├── 📁 data/
-│   ├── slooze_data.db      # SQLite database
-│   └── collected_data.csv  # Exported CSV
+├── src/                          # Source code
+│   ├── cli.py                    # Command-line interface
+│   ├── config.py                 # Configuration management
+│   ├── models.py                 # Pydantic data models
+│   ├── database.py               # SQLAlchemy ORM layer
+│   ├── collector.py              # Data collection engine
+│   └── eda_analysis.py           # EDA and visualization engine
 │
-├── 📁 outputs/
-│   ├── 📁 charts/          # Visualizations (PNG + HTML)
-│   └── 📁 reports/         # Generated HTML reports
+├── data/                         # Data storage
+│   ├── slooze_data.db            # SQLite database
+│   └── collected_data.csv        # CSV export
 │
-├── 📁 logs/                # Application logs
-├── requirements.txt        # Dependencies
-└── README.md
-```
-
-### Component Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CLI Interface                             │
-│                    (cli.py - Typer)                              │
-└─────────────────┬───────────────────────────┬───────────────────┘
-                  │                           │
-                  ▼                           ▼
-    ┌─────────────────────┐     ┌─────────────────────────┐
-    │   Data Collector    │     │     EDA Engine          │
-    │   (collector.py)    │     │   (eda_analysis.py)     │
-    │                     │     │                         │
-    │ • Async HTTP        │     │ • Statistical Analysis  │
-    │ • Rate Limiting     │     │ • Plotly Visualizations │
-    │ • UA Rotation       │     │ • NLP Analysis          │
-    │ • Pydantic Valid.   │     │ • ML Clustering         │
-    └──────────┬──────────┘     │ • Report Generation     │
-               │                └────────────┬────────────┘
-               │                             │
-               ▼                             ▼
-    ┌─────────────────────────────────────────────────────┐
-    │              Database Layer (database.py)            │
-    │                   SQLAlchemy ORM                     │
-    │              ┌──────────────────────┐                │
-    │              │   SQLite Database    │                │
-    │              │   (slooze_data.db)   │                │
-    │              └──────────────────────┘                │
-    └─────────────────────────────────────────────────────┘
+├── outputs/                      # Generated outputs
+│   ├── charts/                   # Visualization files
+│   │   ├── executive_summary.png
+│   │   ├── price_distribution_interactive.html
+│   │   ├── regional_analysis_interactive.html
+│   │   ├── supplier_analysis_interactive.html
+│   │   ├── category_sunburst.html
+│   │   ├── price_clusters.html
+│   │   └── wordcloud.png
+│   │
+│   └── reports/                  # Generated reports
+│       └── analysis_report.html
+│
+├── CHALLENGE_DETAILS.md          # Original challenge description
+├── requirements.txt              # Python dependencies
+├── .gitignore                    # Git ignore rules
+└── README.md                     # This file
 ```
 
 ---
 
-## 💻 Usage
+## Sample Outputs
 
-### CLI Commands
+### Executive Summary Dashboard
+The pipeline generates a 4-panel executive summary including:
+- Price distribution with KDE
+- Top manufacturing hubs
+- Category price comparison
+- Supplier verification status
 
-| Command | Description |
-|---------|-------------|
-| `python src/cli.py collect` | Scrape data from marketplaces |
-| `python src/cli.py collect --mock` | Generate realistic mock data |
-| `python src/cli.py analyze` | Run EDA and generate reports |
-| `python src/cli.py pipeline` | Run complete ETL + EDA |
-| `python src/cli.py status` | Show current data statistics |
-| `python src/cli.py clean` | Clear all data and outputs |
+### Interactive Visualizations
+All interactive charts are saved as standalone HTML files that can be opened in any browser:
+- **Price Distribution**: Histogram with category breakdown
+- **Regional Analysis**: City-wise product and price comparison
+- **Supplier Analysis**: Top suppliers with verification status
+- **Category Sunburst**: Hierarchical category-city distribution
+- **Price Clusters**: K-Means segmentation scatter plot
 
-### Configuration
-
-Edit `src/config.py` to customize:
-
-```python
-@dataclass
-class ScraperConfig:
-    CATEGORIES: List[str] = [
-        "industrial-pumps",
-        "electric-motors",
-        "cnc-machines",
-        # Add more categories...
-    ]
-    
-    RATE_LIMIT: int = 30  # Requests per minute
-    MAX_CONCURRENT_REQUESTS: int = 5
-```
+### HTML Report
+A comprehensive analysis report with:
+- Key statistics (total products, categories, suppliers, cities)
+- Data quality score
+- Auto-generated business insights
+- Links to all interactive visualizations
+- Category-wise statistics table
 
 ---
 
-## 📊 Analysis Outputs
+## Design Decisions
 
-### Generated Reports
+### Why Async Scraping?
+Asynchronous HTTP requests allow concurrent data fetching, significantly improving performance while respecting rate limits through the token bucket algorithm.
 
-After running the analysis, you'll find:
+### Why Pydantic for Validation?
+Pydantic provides runtime type checking and automatic data coercion, ensuring data quality at the point of ingestion rather than discovering issues during analysis.
 
-| File | Description |
-|------|-------------|
-| `outputs/reports/analysis_report.html` | 📄 Premium HTML dashboard |
-| `outputs/charts/executive_summary.png` | 📊 4-panel summary chart |
-| `outputs/charts/price_distribution_interactive.html` | 💰 Price analysis |
-| `outputs/charts/regional_analysis_interactive.html` | 🗺️ Regional insights |
-| `outputs/charts/supplier_analysis_interactive.html` | 🏭 Supplier breakdown |
-| `outputs/charts/category_sunburst.html` | 🌐 Hierarchy view |
-| `outputs/charts/price_clusters.html` | 🎯 Segmentation |
-| `outputs/charts/wordcloud.png` | 🔤 Product keywords |
+### Why SQLite?
+For a take-home challenge, SQLite provides the benefits of a proper database (ACID compliance, indexing, SQL queries) without requiring external setup. The SQLAlchemy abstraction allows easy migration to PostgreSQL or MySQL for production.
 
-### Sample Insights
+### Why Mock Data Fallback?
+B2B marketplaces often block scrapers. The mock data generator ensures the pipeline is always demonstrable, producing statistically realistic data distributions that enable meaningful EDA.
 
-The pipeline automatically generates insights like:
-
-- 📊 Price distribution patterns and skewness
-- 🏙️ Leading manufacturing hubs by product count
-- ✓ Supplier verification rates
-- 🎯 Price segment distribution
-- 🔤 Top product keywords by TF-IDF
+### Why Interactive Visualizations?
+Plotly's interactive charts allow stakeholders to explore data through hover details, zoom, and filtering—providing more value than static images alone.
 
 ---
 
-## 🔧 Technical Highlights
+## Author
 
-### Data Validation with Pydantic
-
-```python
-class ProductListing(BaseModel):
-    product_name: str = Field(..., min_length=3, max_length=500)
-    price_min: Optional[float] = Field(None, ge=0)
-    quality_score: float = Field(default=1.0, ge=0, le=1)
-    
-    @model_validator(mode='after')
-    def calculate_quality_score(self):
-        # Auto-calculate data quality...
-```
-
-### Async Scraping with Rate Limiting
-
-```python
-class RateLimiter:
-    """Token bucket algorithm for respectful scraping."""
-    
-    async def acquire(self):
-        async with self._lock:
-            # Refill tokens based on elapsed time
-            # Wait if insufficient tokens
-```
-
-### Interactive Plotly Dashboards
-
-```python
-fig = make_subplots(
-    rows=1, cols=2,
-    subplot_titles=('Price Distribution', 'Price by Category')
-)
-fig.add_trace(go.Histogram(...))
-fig.write_html("price_distribution.html")
-```
-
----
-
-## 📈 Performance
-
-| Metric | Value |
-|--------|-------|
-| Mock data generation | ~300 products in <2s |
-| Database insertion | ~1000 records/second (batch) |
-| Full EDA pipeline | <30 seconds |
-| Report generation | <5 seconds |
-
----
-
-## 🧪 Testing
-
-```bash
-# Run with mock data for testing
-python src/cli.py pipeline --mock
-
-# Check database status
-python src/cli.py status
-```
-
----
-
-## 📝 License
-
-This solution was created as part of the Slooze hiring challenge.
-
-**© Slooze. All Rights Reserved.**
-
----
-
-## 👤 Author
-
-**[Your Name]**  
+**Spandana M K**  
 Data Engineering Candidate
 
 ---
 
 <p align="center">
-  Built with ❤️ using Python, Plotly, SQLAlchemy, and Rich
+  <em>Built with precision and passion for data engineering excellence</em>
 </p>
