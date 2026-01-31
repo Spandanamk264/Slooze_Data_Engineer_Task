@@ -1,368 +1,31 @@
 """
-Slooze Data Engineering Challenge - Advanced EDA & Analytics
-=============================================================
-
-Comprehensive exploratory data analysis with:
-- Statistical analysis
-- Interactive visualizations
-- NLP text analysis
-- Clustering and segmentation
-- Automated insight generation
-- HTML report generation
+SLOOZE ULTRA-ADVANCED EDA ENGINE v4.0
+======================================
+Main orchestrator combining statistics, clustering, and visualization
+modules into a comprehensive analysis pipeline.
 """
 
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from scipy import stats
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from sklearn.feature_extraction.text import TfidfVectorizer
-from wordcloud import WordCloud
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
-import logging
-import warnings
+from typing import List, Dict, Any, Optional
 from pathlib import Path
-from jinja2 import Template
+import warnings
+import logging
 
-from config import OUTPUT_DIR, analysis_config, DATA_DIR
+from config import OUTPUT_DIR, DATA_DIR
 from database import db_manager
+
+# Import advanced modules
+from statistics_engine import AdvancedStatisticalEngine
+from clustering_engine import AdvancedClusteringEngine
+from visualization_engine import VisualizationEngine
 
 warnings.filterwarnings('ignore')
 logger = logging.getLogger(__name__)
 
-# Set premium style
-plt.style.use(analysis_config.CHART_STYLE)
-sns.set_palette(analysis_config.COLOR_PALETTE)
-
-# Output directories
-CHARTS_DIR = OUTPUT_DIR / "charts"
 REPORTS_DIR = OUTPUT_DIR / "reports"
-
-
-class StatisticalAnalyzer:
-    """Advanced statistical analysis."""
-    
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
-        self.insights: List[str] = []
-        
-    def compute_summary_stats(self) -> Dict[str, Any]:
-        """Compute comprehensive summary statistics."""
-        numeric_cols = self.df.select_dtypes(include=[np.number]).columns
-        
-        stats_dict = {}
-        for col in numeric_cols:
-            data = self.df[col].dropna()
-            if len(data) > 0:
-                stats_dict[col] = {
-                    'count': len(data),
-                    'mean': data.mean(),
-                    'std': data.std(),
-                    'min': data.min(),
-                    'max': data.max(),
-                    'median': data.median(),
-                    'q25': data.quantile(0.25),
-                    'q75': data.quantile(0.75),
-                    'iqr': data.quantile(0.75) - data.quantile(0.25),
-                    'skewness': stats.skew(data),
-                    'kurtosis': stats.kurtosis(data)
-                }
-        
-        return stats_dict
-    
-    def detect_outliers(self, column: str, method: str = 'iqr') -> pd.Series:
-        """Detect outliers using IQR or Z-score method."""
-        data = self.df[column].dropna()
-        
-        if method == 'iqr':
-            q1, q3 = data.quantile([0.25, 0.75])
-            iqr = q3 - q1
-            lower = q1 - 1.5 * iqr
-            upper = q3 + 1.5 * iqr
-            return (data < lower) | (data > upper)
-        else:
-            z_scores = np.abs(stats.zscore(data))
-            return z_scores > 3
-    
-    def correlation_analysis(self) -> pd.DataFrame:
-        """Compute correlation matrix for numeric columns."""
-        numeric_df = self.df.select_dtypes(include=[np.number])
-        return numeric_df.corr()
-    
-    def price_distribution_analysis(self) -> Dict[str, Any]:
-        """Analyze price distribution characteristics."""
-        if 'price_min' not in self.df.columns:
-            return {}
-        
-        prices = self.df['price_min'].dropna()
-        
-        # Test for normality
-        if len(prices) > 8:
-            _, normality_p = stats.normaltest(prices)
-        else:
-            normality_p = None
-        
-        # Distribution fit
-        result = {
-            'is_normal': normality_p > 0.05 if normality_p else None,
-            'normality_p_value': normality_p,
-            'distribution_type': 'log-normal' if prices.skew() > 1 else 'approximately normal',
-            'price_segments': self._segment_prices(prices)
-        }
-        
-        # Generate insight
-        if prices.skew() > 1:
-            self.insights.append(
-                f"[Price] Distribution is right-skewed (skewness: {prices.skew():.2f}), "
-                "indicating most products are in lower price ranges with some premium items."
-            )
-        
-        return result
-    
-    def _segment_prices(self, prices: pd.Series) -> Dict[str, int]:
-        """Segment prices into buckets."""
-        bins = [0, 10000, 50000, 200000, 1000000, float('inf')]
-        labels = ['Budget (<10K)', 'Economy (10K-50K)', 'Mid-range (50K-2L)', 
-                  'Premium (2L-10L)', 'Enterprise (>10L)']
-        
-        segments = pd.cut(prices, bins=bins, labels=labels)
-        return segments.value_counts().to_dict()
-
-
-class VisualizationEngine:
-    """Advanced visualization generation."""
-    
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
-        self.color_palette = px.colors.qualitative.Set2
-        
-    def create_price_distribution(self) -> Tuple[go.Figure, str]:
-        """Create interactive price distribution chart."""
-        fig = make_subplots(
-            rows=1, cols=2,
-            subplot_titles=('Price Distribution', 'Price by Category'),
-            specs=[[{"type": "histogram"}, {"type": "box"}]]
-        )
-        
-        # Histogram
-        fig.add_trace(
-            go.Histogram(
-                x=self.df['price_min'],
-                nbinsx=30,
-                marker_color='#667eea',
-                opacity=0.7,
-                name='Price Distribution'
-            ),
-            row=1, col=1
-        )
-        
-        # Box plot by category
-        categories = self.df['category'].unique()
-        for i, cat in enumerate(categories):
-            cat_data = self.df[self.df['category'] == cat]['price_min']
-            fig.add_trace(
-                go.Box(
-                    y=cat_data,
-                    name=cat[:15],
-                    marker_color=self.color_palette[i % len(self.color_palette)]
-                ),
-                row=1, col=2
-            )
-        
-        fig.update_layout(
-            title_text='<b>Price Analysis Dashboard</b>',
-            title_font_size=20,
-            showlegend=False,
-            template='plotly_white',
-            height=500
-        )
-        
-        filepath = CHARTS_DIR / "price_distribution_interactive.html"
-        fig.write_html(str(filepath))
-        
-        return fig, str(filepath)
-    
-    def create_regional_heatmap(self) -> Tuple[go.Figure, str]:
-        """Create regional insights visualization."""
-        # Aggregate by city
-        city_stats = self.df.groupby('city').agg({
-            'product_name': 'count',
-            'price_min': 'mean'
-        }).rename(columns={'product_name': 'count', 'price_min': 'avg_price'})
-        city_stats = city_stats.reset_index().sort_values('count', ascending=False).head(15)
-        
-        fig = make_subplots(
-            rows=1, cols=2,
-            subplot_titles=('Products by City', 'Average Price by City'),
-            specs=[[{"type": "bar"}, {"type": "bar"}]]
-        )
-        
-        # Count bar
-        fig.add_trace(
-            go.Bar(
-                x=city_stats['city'],
-                y=city_stats['count'],
-                marker_color='#764ba2',
-                name='Product Count'
-            ),
-            row=1, col=1
-        )
-        
-        # Price bar
-        fig.add_trace(
-            go.Bar(
-                x=city_stats['city'],
-                y=city_stats['avg_price'],
-                marker_color='#f093fb',
-                name='Avg Price'
-            ),
-            row=1, col=2
-        )
-        
-        fig.update_layout(
-            title_text='<b>Regional Market Analysis</b>',
-            title_font_size=20,
-            template='plotly_white',
-            height=500,
-            showlegend=False
-        )
-        
-        fig.update_xaxes(tickangle=45)
-        
-        filepath = CHARTS_DIR / "regional_analysis_interactive.html"
-        fig.write_html(str(filepath))
-        
-        return fig, str(filepath)
-    
-    def create_supplier_analysis(self) -> Tuple[go.Figure, str]:
-        """Create supplier insights visualization."""
-        supplier_stats = self.df.groupby('supplier_name').agg({
-            'product_name': 'count',
-            'price_min': 'mean',
-            'supplier_verified': 'first'
-        }).rename(columns={'product_name': 'listings'})
-        
-        supplier_stats = supplier_stats.reset_index().nlargest(10, 'listings')
-        
-        fig = go.Figure()
-        
-        colors = ['#2ecc71' if v else '#e74c3c' for v in supplier_stats['supplier_verified']]
-        
-        fig.add_trace(go.Bar(
-            x=supplier_stats['supplier_name'],
-            y=supplier_stats['listings'],
-            marker_color=colors,
-            text=supplier_stats['listings'],
-            textposition='auto',
-            hovertemplate='<b>%{x}</b><br>Listings: %{y}<br>Avg Price: ₹%{customdata:,.0f}',
-            customdata=supplier_stats['price_min']
-        ))
-        
-        fig.update_layout(
-            title_text='<b>Top Suppliers Analysis</b><br><sub>Green = Verified | Red = Unverified</sub>',
-            title_font_size=18,
-            xaxis_title='Supplier',
-            yaxis_title='Number of Listings',
-            template='plotly_white',
-            height=500
-        )
-        
-        fig.update_xaxes(tickangle=45)
-        
-        filepath = CHARTS_DIR / "supplier_analysis_interactive.html"
-        fig.write_html(str(filepath))
-        
-        return fig, str(filepath)
-    
-    def create_category_sunburst(self) -> Tuple[go.Figure, str]:
-        """Create category hierarchy sunburst chart."""
-        # Create hierarchy data
-        hierarchy_data = self.df.groupby(['category', 'city']).size().reset_index(name='count')
-        
-        fig = px.sunburst(
-            hierarchy_data,
-            path=['category', 'city'],
-            values='count',
-            color='count',
-            color_continuous_scale='Viridis'
-        )
-        
-        fig.update_layout(
-            title_text='<b>Category-City Distribution</b>',
-            title_font_size=20,
-            height=600
-        )
-        
-        filepath = CHARTS_DIR / "category_sunburst.html"
-        fig.write_html(str(filepath))
-        
-        return fig, str(filepath)
-    
-    def create_static_charts(self):
-        """Create static matplotlib charts for PDF/report embedding."""
-        fig, axes = plt.subplots(2, 2, figsize=(16, 14))
-        fig.suptitle('Slooze Data Analysis - Executive Summary', fontsize=20, fontweight='bold')
-        
-        # 1. Price distribution with KDE
-        ax1 = axes[0, 0]
-        sns.histplot(data=self.df, x='price_min', kde=True, ax=ax1, color='#667eea')
-        ax1.set_title('Price Distribution', fontsize=14, fontweight='bold')
-        ax1.set_xlabel('Price (INR)')
-        ax1.xaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'₹{x/1000:.0f}K'))
-        
-        # 2. Top cities bar chart
-        ax2 = axes[0, 1]
-        top_cities = self.df['city'].value_counts().head(10)
-        colors = sns.color_palette('viridis', len(top_cities))
-        bars = ax2.barh(top_cities.index[::-1], top_cities.values[::-1], color=colors)
-        ax2.set_title('Top 10 Manufacturing Hubs', fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Number of Products')
-        for bar, val in zip(bars, top_cities.values[::-1]):
-            ax2.text(val + 0.5, bar.get_y() + bar.get_height()/2, str(val), 
-                    va='center', fontsize=10)
-        
-        # 3. Category price comparison
-        ax3 = axes[1, 0]
-        category_order = self.df.groupby('category')['price_min'].median().sort_values().index
-        sns.boxplot(data=self.df, x='category', y='price_min', ax=ax3, 
-                   order=category_order, palette='viridis')
-        ax3.set_title('Price Range by Category', fontsize=14, fontweight='bold')
-        ax3.set_xticklabels(ax3.get_xticklabels(), rotation=45, ha='right')
-        ax3.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'₹{x/100000:.1f}L'))
-        ax3.set_xlabel('')
-        ax3.set_ylabel('Price (INR)')
-        
-        # 4. Verified vs Unverified suppliers
-        ax4 = axes[1, 1]
-        verified_counts = self.df['supplier_verified'].value_counts()
-        colors = ['#2ecc71', '#e74c3c']
-        labels = ['Verified', 'Unverified']
-        explode = (0.05, 0)
-        wedges, texts, autotexts = ax4.pie(
-            verified_counts.values, 
-            labels=labels,
-            colors=colors,
-            explode=explode,
-            autopct='%1.1f%%',
-            startangle=90,
-            textprops={'fontsize': 12}
-        )
-        ax4.set_title('Supplier Verification Status', fontsize=14, fontweight='bold')
-        
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        
-        filepath = CHARTS_DIR / "executive_summary.png"
-        plt.savefig(filepath, dpi=analysis_config.FIGURE_DPI, bbox_inches='tight', 
-                   facecolor='white', edgecolor='none')
-        plt.close()
-        
-        return str(filepath)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class NLPAnalyzer:
@@ -370,590 +33,762 @@ class NLPAnalyzer:
     
     def __init__(self, df: pd.DataFrame):
         self.df = df
+        self.insights = []
+        self.keywords = {}
         
-    def generate_word_cloud(self) -> str:
-        """Generate word cloud from product names."""
-        text = ' '.join(self.df['product_name'].dropna().astype(str))
-        
-        # Custom stopwords
-        stopwords = {'model', 'type', 'new', 'quality', 'best', 'for', 'the', 'and', 
-                    'with', 'pro', 'standard', 'grade', 'industrial', 'machine'}
-        
-        wordcloud = WordCloud(
-            width=1200,
-            height=600,
-            background_color='white',
-            colormap='viridis',
-            max_words=100,
-            stopwords=stopwords,
-            min_font_size=10,
-            max_font_size=100
-        ).generate(text.lower())
-        
-        plt.figure(figsize=(15, 8))
-        plt.imshow(wordcloud, interpolation='bilinear')
-        plt.axis('off')
-        plt.title('Product Name Word Cloud', fontsize=20, fontweight='bold', pad=20)
-        
-        filepath = CHARTS_DIR / "wordcloud.png"
-        plt.savefig(filepath, dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close()
-        
-        return str(filepath)
+    def analyze(self) -> Dict[str, Any]:
+        """Run NLP analysis."""
+        self._extract_keywords()
+        self._analyze_patterns()
+        self._sentiment_proxy()
+        return {'keywords': self.keywords, 'insights': self.insights}
     
-    def extract_keywords(self) -> Dict[str, int]:
-        """Extract top keywords using TF-IDF."""
-        vectorizer = TfidfVectorizer(
-            max_features=50,
-            stop_words='english',
-            ngram_range=(1, 2)
-        )
+    def _extract_keywords(self):
+        """Extract keywords using TF-IDF."""
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        
+        text = self.df['product_name'].fillna('').astype(str)
         
         try:
-            tfidf_matrix = vectorizer.fit_transform(self.df['product_name'].fillna(''))
-            feature_names = vectorizer.get_feature_names_out()
+            tfidf = TfidfVectorizer(
+                max_features=100,
+                stop_words='english',
+                ngram_range=(1, 3),
+                min_df=2
+            )
+            matrix = tfidf.fit_transform(text)
+            features = tfidf.get_feature_names_out()
+            scores = matrix.mean(axis=0).A1
             
-            # Get average TF-IDF scores
-            scores = tfidf_matrix.mean(axis=0).A1
-            keywords = dict(zip(feature_names, scores))
+            self.keywords = dict(sorted(zip(features, scores), key=lambda x: x[1], reverse=True)[:30])
             
-            return dict(sorted(keywords.items(), key=lambda x: x[1], reverse=True)[:20])
-        except:
-            return {}
-
-
-class ClusteringEngine:
-    """Product clustering and segmentation."""
+            top5 = list(self.keywords.keys())[:5]
+            self.insights.append(f"Top keywords: {', '.join(top5)}")
+        except Exception as e:
+            logger.warning(f"Keyword extraction failed: {e}")
     
-    def __init__(self, df: pd.DataFrame):
+    def _analyze_patterns(self):
+        """Analyze naming patterns."""
+        # Most common category
+        cat_counts = self.df['category'].value_counts()
+        self.insights.append(f"Dominant category: {cat_counts.index[0]} ({cat_counts.iloc[0]} products)")
+        
+        # Product name length
+        name_lengths = self.df['product_name'].str.len()
+        avg_len = name_lengths.mean()
+        self.insights.append(f"Average product name length: {avg_len:.0f} characters")
+        
+    def _sentiment_proxy(self):
+        """Proxy sentiment analysis using quality indicators."""
+        quality_words = ['premium', 'best', 'quality', 'certified', 'genuine', 'authentic']
+        budget_words = ['cheap', 'budget', 'economy', 'basic', 'simple']
+        
+        text_lower = self.df['product_name'].str.lower().fillna('')
+        
+        quality_count = sum(text_lower.str.contains(w).sum() for w in quality_words)
+        budget_count = sum(text_lower.str.contains(w).sum() for w in budget_words)
+        
+        total = len(self.df)
+        self.insights.append(f"Quality-indicator products: {quality_count} ({quality_count/total*100:.1f}%)")
+
+
+class MegaReportGenerator:
+    """Generate the comprehensive single-file HTML report."""
+    
+    def __init__(self, df: pd.DataFrame, insights: List[str], charts: List[Dict],
+                 static_charts: List[Dict], wordcloud_b64: str):
         self.df = df
+        self.insights = insights
+        self.charts = charts
+        self.static_charts = static_charts
+        self.wordcloud_b64 = wordcloud_b64
         
-    def perform_price_clustering(self, n_clusters: int = 5) -> pd.DataFrame:
-        """Cluster products by price characteristics."""
-        features = self.df[['price_min', 'price_max']].dropna()
+    def generate(self) -> str:
+        """Generate the complete HTML report."""
+        # Category statistics
+        cat_stats = self.df.groupby('category').agg({
+            'product_name': 'count',
+            'price_min': ['mean', 'min', 'max'],
+            'supplier_verified': 'mean'
+        }).reset_index()
+        cat_stats.columns = ['category', 'count', 'avg_price', 'min_price', 'max_price', 'verified_pct']
         
-        if len(features) < n_clusters:
-            return self.df
+        # KPIs
+        total_products = len(self.df)
+        total_categories = self.df['category'].nunique()
+        total_suppliers = self.df['supplier_name'].nunique()
+        total_cities = self.df['city'].nunique()
+        avg_price = self.df['price_min'].mean()
+        quality = self.df['quality_score'].mean() * 100 if 'quality_score' in self.df.columns else 95
         
-        scaler = StandardScaler()
-        scaled_features = scaler.fit_transform(features)
+        avg_price_str = f"Rs {avg_price/1000:.0f}K" if avg_price < 100000 else f"Rs {avg_price/100000:.1f}L"
         
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-        clusters = kmeans.fit_predict(scaled_features)
-        
-        # Map cluster labels to meaningful names
-        cluster_centers = scaler.inverse_transform(kmeans.cluster_centers_)
-        sorted_indices = np.argsort(cluster_centers[:, 0])
-        
-        label_map = {
-            sorted_indices[0]: 'Budget',
-            sorted_indices[1]: 'Economy',
-            sorted_indices[2]: 'Mid-Range',
-            sorted_indices[3]: 'Premium',
-            sorted_indices[4]: 'Enterprise' if n_clusters > 4 else 'Premium'
-        }
-        
-        self.df.loc[features.index, 'price_segment'] = [label_map.get(c, f'Cluster {c}') for c in clusters]
-        
-        return self.df
-    
-    def visualize_clusters(self) -> str:
-        """Visualize price clusters."""
-        if 'price_segment' not in self.df.columns:
-            self.perform_price_clustering()
-        
-        fig = px.scatter(
-            self.df.dropna(subset=['price_min', 'price_max', 'price_segment']),
-            x='price_min',
-            y='price_max',
-            color='price_segment',
-            hover_data=['product_name', 'supplier_name', 'city'],
-            title='<b>Product Price Segmentation</b>',
-            labels={'price_min': 'Minimum Price (INR)', 'price_max': 'Maximum Price (INR)'},
-            color_discrete_sequence=px.colors.qualitative.Set2
+        # Build HTML
+        html = self._build_html(
+            total_products, total_categories, total_suppliers, total_cities,
+            avg_price_str, quality, cat_stats
         )
         
-        fig.update_layout(template='plotly_white', height=600)
-        
-        filepath = CHARTS_DIR / "price_clusters.html"
-        fig.write_html(str(filepath))
+        filepath = REPORTS_DIR / "complete_analysis_report.html"
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(html)
         
         return str(filepath)
-
-
-class ReportGenerator:
-    """Generate comprehensive HTML report."""
     
-    REPORT_TEMPLATE = '''
-<!DOCTYPE html>
+    def _build_html(self, total_products, total_categories, total_suppliers,
+                    total_cities, avg_price_str, quality, cat_stats):
+        """Build the complete HTML document."""
+        
+        html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slooze Data Analysis Report</title>
+    <title>Slooze Market Intelligence Report</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root {
+        :root {{
             --primary: #667eea;
             --secondary: #764ba2;
-            --success: #2ecc71;
-            --danger: #e74c3c;
-            --dark: #2c3e50;
-            --light: #ecf0f1;
-        }
+            --accent: #f093fb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --light: #f8fafc;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-warm: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-cool: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }}
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
+        body {{
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
             color: var(--dark);
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            line-height: 1.7;
             min-height: 100vh;
-        }
+        }}
         
-        .container {
-            max-width: 1200px;
+        .container {{
+            max-width: 1800px;
             margin: 0 auto;
-            padding: 20px;
-        }
+            padding: 45px 35px;
+        }}
         
-        header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        /* Premium Header */
+        header {{
+            background: var(--gradient);
             color: white;
-            padding: 40px 20px;
+            padding: 85px 60px;
+            border-radius: 30px;
+            margin-bottom: 55px;
+            box-shadow: 0 35px 120px rgba(102, 126, 234, 0.45);
             text-align: center;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
+            position: relative;
+            overflow: hidden;
+        }}
         
-        header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
+        header::before {{
+            content: '';
+            position: absolute;
+            top: -60%;
+            right: -40%;
+            width: 120%;
+            height: 220%;
+            background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
+            animation: pulse 8s ease-in-out infinite;
+        }}
         
-        header .subtitle {
-            opacity: 0.9;
+        @keyframes pulse {{
+            0%, 100% {{ transform: scale(1); opacity: 0.5; }}
+            50% {{ transform: scale(1.1); opacity: 0.8; }}
+        }}
+        
+        header h1 {{
+            font-size: 3.8rem;
+            font-weight: 800;
+            margin-bottom: 14px;
+            letter-spacing: -2.5px;
+            position: relative;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }}
+        
+        header .subtitle {{
+            font-size: 1.5rem;
+            opacity: 0.92;
+            font-weight: 400;
+            margin-bottom: 8px;
+        }}
+        
+        header .tagline {{
             font-size: 1.1rem;
-        }
+            opacity: 0.75;
+            font-weight: 300;
+        }}
         
-        .stats-grid {
+        header .meta {{
+            margin-top: 35px;
+            display: flex;
+            justify-content: center;
+            gap: 28px;
+            flex-wrap: wrap;
+        }}
+        
+        header .meta span {{
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 12px 26px;
+            border-radius: 35px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.25);
+        }}
+        
+        /* KPI Cards */
+        .kpi-section {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
+            grid-template-columns: repeat(6, 1fr);
+            gap: 24px;
+            margin-bottom: 60px;
+        }}
         
-        .stat-card {
+        .kpi-card {{
             background: white;
-            padding: 25px;
-            border-radius: 15px;
+            padding: 38px 24px;
+            border-radius: 24px;
             text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-            transition: transform 0.3s ease;
-        }
+            box-shadow: 0 10px 45px rgba(0,0,0,0.08);
+            transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0,0,0,0.04);
+            position: relative;
+            overflow: hidden;
+        }}
         
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
+        .kpi-card::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }}
         
-        .stat-card .value {
-            font-size: 2rem;
-            font-weight: bold;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        .kpi-card:hover {{
+            transform: translateY(-12px);
+            box-shadow: 0 30px 70px rgba(102, 126, 234, 0.25);
+        }}
+        
+        .kpi-card:hover::before {{
+            opacity: 1;
+        }}
+        
+        .kpi-card .icon {{
+            font-size: 2.8rem;
+            margin-bottom: 18px;
+            display: inline-block;
+        }}
+        
+        .kpi-card .value {{
+            font-size: 3rem;
+            font-weight: 800;
+            background: var(--gradient);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-        }
+            background-clip: text;
+            line-height: 1.1;
+        }}
         
-        .stat-card .label {
-            color: #666;
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }
+        .kpi-card .label {{
+            color: #64748b;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1.3px;
+            margin-top: 12px;
+        }}
         
-        .section {
+        /* Sections */
+        .section {{
             background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-        }
+            border-radius: 28px;
+            padding: 55px;
+            margin-bottom: 45px;
+            box-shadow: 0 10px 45px rgba(0,0,0,0.06);
+            border: 1px solid rgba(0,0,0,0.04);
+        }}
         
-        .section h2 {
-            color: var(--primary);
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid var(--light);
-        }
+        .section-header {{
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 40px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #f1f5f9;
+        }}
         
-        .insights {
-            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
-            border-left: 4px solid #f39c12;
-            padding: 20px;
-            border-radius: 0 10px 10px 0;
-            margin: 15px 0;
-        }
+        .section-header .icon {{
+            width: 60px;
+            height: 60px;
+            background: var(--gradient);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }}
         
-        .insights h3 {
-            color: #f39c12;
-            margin-bottom: 15px;
-        }
+        .section-header h2 {{
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+        }}
         
-        .insights ul {
-            list-style: none;
-        }
+        .section-header .subtitle {{
+            font-size: 0.95rem;
+            color: #64748b;
+            margin-left: auto;
+        }}
         
-        .insights li {
-            padding: 8px 0;
-            border-bottom: 1px dashed #ddd;
-        }
+        /* Insights Grid */
+        .insights-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 22px;
+        }}
         
-        .insights li:last-child {
-            border-bottom: none;
-        }
+        .insight-card {{
+            background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
+            border-left: 6px solid #eab308;
+            padding: 26px 32px;
+            border-radius: 0 20px 20px 0;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #713f12;
+            transition: all 0.35s ease;
+            box-shadow: 0 4px 15px rgba(234, 179, 8, 0.15);
+        }}
         
-        .chart-container {
-            margin: 20px 0;
+        .insight-card:hover {{
+            transform: translateX(10px);
+            box-shadow: 0 8px 25px rgba(234, 179, 8, 0.25);
+        }}
+        
+        /* Charts */
+        .chart-container {{
+            margin: 40px 0;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            min-height: 500px;
+            background: white;
+        }}
+        
+        .chart-container > div {{
+            min-height: 480px;
+        }}
+        
+        .static-chart {{
             text-align: center;
-        }
+            padding: 40px;
+            background: linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%);
+        }}
         
-        .chart-container img {
+        .static-chart img {{
             max-width: 100%;
             height: auto;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+        }}
         
-        .chart-link {
-            display: inline-block;
-            margin: 10px;
-            padding: 10px 20px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            text-decoration: none;
-            border-radius: 25px;
-            transition: transform 0.3s ease;
-        }
-        
-        .chart-link:hover {
-            transform: scale(1.05);
-        }
-        
-        table {
+        /* Data Table */
+        .data-table {{
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
-        }
+            margin-top: 28px;
+            font-size: 0.98rem;
+        }}
         
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        th {
-            background: var(--primary);
+        .data-table th {{
+            background: var(--gradient);
             color: white;
-        }
+            padding: 22px 30px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }}
         
-        tr:hover {
-            background: #f5f5f5;
-        }
+        .data-table th:first-child {{ border-radius: 16px 0 0 0; }}
+        .data-table th:last-child {{ border-radius: 0 16px 0 0; }}
         
-        footer {
+        .data-table td {{
+            padding: 22px 30px;
+            border-bottom: 1px solid #e2e8f0;
+        }}
+        
+        .data-table tr:nth-child(even) {{
+            background: #f8fafc;
+        }}
+        
+        .data-table tr:hover {{
+            background: linear-gradient(90deg, #e0e7ff 0%, #f0f4ff 100%);
+        }}
+        
+        .badge {{
+            display: inline-block;
+            padding: 7px 18px;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }}
+        
+        .badge-success {{
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+        }}
+        
+        .badge-warning {{
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+        }}
+        
+        /* Footer */
+        footer {{
             text-align: center;
-            padding: 20px;
-            color: #666;
-        }
+            padding: 70px 40px;
+            color: #94a3b8;
+        }}
         
-        @media (max-width: 768px) {
-            header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
+        footer .brand {{
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 15px;
+        }}
+        
+        footer .tech-stack {{
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }}
+        
+        footer .tech-stack span {{
+            background: white;
+            padding: 8px 18px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--dark);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }}
+        
+        /* Responsive */
+        @media (max-width: 1400px) {{
+            .kpi-section {{ grid-template-columns: repeat(3, 1fr); }}
+        }}
+        
+        @media (max-width: 1000px) {{
+            .insights-grid {{ grid-template-columns: repeat(2, 1fr); }}
+        }}
+        
+        @media (max-width: 768px) {{
+            header h1 {{ font-size: 2.4rem; }}
+            .kpi-section {{ grid-template-columns: repeat(2, 1fr); }}
+            .insights-grid {{ grid-template-columns: 1fr; }}
+            .section {{ padding: 30px; }}
+            .container {{ padding: 20px; }}
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>📊 Slooze Data Analysis Report</h1>
-            <p class="subtitle">B2B Marketplace Intelligence | Generated: {{ generated_at }}</p>
+            <h1>Market Intelligence Report</h1>
+            <p class="subtitle">B2B Industrial Marketplace - Advanced Data Analysis</p>
+            <p class="tagline">Comprehensive insights powered by Machine Learning & Statistical Analysis</p>
+            <div class="meta">
+                <span>Generated: {datetime.now().strftime("%B %d, %Y at %H:%M")}</span>
+                <span>Data Points: {total_products:,}</span>
+                <span>Analytics Engine v4.0</span>
+                <span>Premium Report</span>
+            </div>
         </header>
         
-        <section class="stats-grid">
-            <div class="stat-card">
-                <div class="value">{{ total_records }}</div>
+        <section class="kpi-section">
+            <div class="kpi-card">
+                <div class="icon">📦</div>
+                <div class="value">{total_products:,}</div>
                 <div class="label">Total Products</div>
             </div>
-            <div class="stat-card">
-                <div class="value">{{ categories_count }}</div>
+            <div class="kpi-card">
+                <div class="icon">📁</div>
+                <div class="value">{total_categories}</div>
                 <div class="label">Categories</div>
             </div>
-            <div class="stat-card">
-                <div class="value">{{ suppliers_count }}</div>
-                <div class="label">Unique Suppliers</div>
+            <div class="kpi-card">
+                <div class="icon">🏭</div>
+                <div class="value">{total_suppliers}</div>
+                <div class="label">Suppliers</div>
             </div>
-            <div class="stat-card">
-                <div class="value">{{ cities_count }}</div>
-                <div class="label">Cities Covered</div>
+            <div class="kpi-card">
+                <div class="icon">🌍</div>
+                <div class="value">{total_cities}</div>
+                <div class="label">Cities</div>
             </div>
-            <div class="stat-card">
-                <div class="value">₹{{ avg_price }}</div>
-                <div class="label">Average Price</div>
+            <div class="kpi-card">
+                <div class="icon">💰</div>
+                <div class="value">{avg_price_str}</div>
+                <div class="label">Avg Price</div>
             </div>
-            <div class="stat-card">
-                <div class="value">{{ quality_score }}%</div>
+            <div class="kpi-card">
+                <div class="icon">✅</div>
+                <div class="value">{quality:.0f}%</div>
                 <div class="label">Data Quality</div>
             </div>
         </section>
         
-        <section class="section insights">
-            <h3>💡 Key Insights</h3>
-            <ul>
-                {% for insight in insights %}
-                <li>{{ insight }}</li>
-                {% endfor %}
-            </ul>
-        </section>
-        
         <section class="section">
-            <h2>📈 Executive Summary</h2>
-            <div class="chart-container">
-                <img src="charts/executive_summary.png" alt="Executive Summary Charts">
+            <div class="section-header">
+                <div class="icon">💡</div>
+                <h2>Key Intelligence Insights</h2>
+                <span class="subtitle">{len(self.insights)} insights discovered</span>
+            </div>
+            <div class="insights-grid">
+                {''.join([f'<div class="insight-card">{insight}</div>' for insight in self.insights[:12]])}
             </div>
         </section>
+'''
         
+        # Add all interactive charts
+        for i, chart in enumerate(self.charts):
+            if chart.get('html'):
+                html += f'''
         <section class="section">
-            <h2>🔤 Product Keywords</h2>
+            <div class="section-header">
+                <div class="icon">📊</div>
+                <h2>{chart['title']}</h2>
+            </div>
             <div class="chart-container">
-                <img src="charts/wordcloud.png" alt="Word Cloud">
+                {chart['html']}
             </div>
         </section>
+'''
         
+        # Add wordcloud
+        if self.wordcloud_b64:
+            html += f'''
         <section class="section">
-            <h2>📊 Interactive Visualizations</h2>
-            <div class="chart-container">
-                <a href="charts/price_distribution_interactive.html" class="chart-link">💰 Price Distribution</a>
-                <a href="charts/regional_analysis_interactive.html" class="chart-link">🗺️ Regional Analysis</a>
-                <a href="charts/supplier_analysis_interactive.html" class="chart-link">🏭 Supplier Analysis</a>
-                <a href="charts/category_sunburst.html" class="chart-link">🌐 Category Hierarchy</a>
-                <a href="charts/price_clusters.html" class="chart-link">🎯 Price Segments</a>
+            <div class="section-header">
+                <div class="icon">🔤</div>
+                <h2>Product Keyword Analysis</h2>
+                <span class="subtitle">NLP-powered keyword extraction</span>
+            </div>
+            <div class="static-chart">
+                <img src="{self.wordcloud_b64}" alt="Keyword Cloud">
             </div>
         </section>
+'''
         
+        # Add static charts
+        for chart in self.static_charts:
+            if chart.get('base64'):
+                html += f'''
         <section class="section">
-            <h2>📋 Category Statistics</h2>
-            <table>
+            <div class="section-header">
+                <div class="icon">📈</div>
+                <h2>{chart['title']}</h2>
+            </div>
+            <div class="static-chart">
+                <img src="{chart['base64']}" alt="{chart['title']}">
+            </div>
+        </section>
+'''
+        
+        # Category table
+        html += '''
+        <section class="section">
+            <div class="section-header">
+                <div class="icon">📋</div>
+                <h2>Category Performance Breakdown</h2>
+            </div>
+            <table class="data-table">
                 <thead>
                     <tr>
                         <th>Category</th>
                         <th>Products</th>
                         <th>Avg Price</th>
-                        <th>Min Price</th>
-                        <th>Max Price</th>
+                        <th>Price Range</th>
+                        <th>Verified %</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for stat in category_stats %}
+'''
+        
+        for _, row in cat_stats.iterrows():
+            verified_badge = 'badge-success' if row['verified_pct'] > 0.5 else 'badge-warning'
+            html += f'''
                     <tr>
-                        <td>{{ stat.category }}</td>
-                        <td>{{ stat.count }}</td>
-                        <td>₹{{ stat.avg_price | default('N/A', true) }}</td>
-                        <td>₹{{ stat.min_price | default('N/A', true) }}</td>
-                        <td>₹{{ stat.max_price | default('N/A', true) }}</td>
+                        <td><strong>{row['category']}</strong></td>
+                        <td>{int(row['count']):,}</td>
+                        <td>Rs {row['avg_price']:,.0f}</td>
+                        <td>Rs {row['min_price']:,.0f} - Rs {row['max_price']:,.0f}</td>
+                        <td>{row['verified_pct']*100:.1f}%</td>
+                        <td><span class="badge badge-success">Active</span></td>
                     </tr>
-                    {% endfor %}
+'''
+        
+        html += '''
                 </tbody>
             </table>
         </section>
         
         <footer>
-            <p>Generated by Slooze Data Engineering Pipeline | © 2026</p>
+            <div class="brand">Slooze Data Engineering Pipeline</div>
+            <p>Advanced Analytics Solution by <strong>Spandana M K</strong></p>
+            <div class="tech-stack">
+                <span>Python 3.10</span>
+                <span>Pandas</span>
+                <span>Plotly</span>
+                <span>Scikit-learn</span>
+                <span>Matplotlib</span>
+                <span>Seaborn</span>
+                <span>SQLAlchemy</span>
+            </div>
+            <p style="margin-top: 25px; font-size: 0.9rem;">&copy; 2026 | Built for Slooze Data Engineering Challenge</p>
         </footer>
     </div>
 </body>
 </html>
-    '''
-    
-    def __init__(self, df: pd.DataFrame, insights: List[str]):
-        self.df = df
-        self.insights = insights
-        
-    def generate(self) -> str:
-        """Generate the full HTML report."""
-        template = Template(self.REPORT_TEMPLATE)
-        
-        # Prepare data
-        category_stats = db_manager.get_category_stats()
-        
-        # Format price for display
-        avg_price = self.df['price_min'].mean()
-        avg_price_str = f"{avg_price/1000:.0f}K" if avg_price < 1000000 else f"{avg_price/100000:.1f}L"
-        
-        quality_score = (self.df['quality_score'].mean() * 100) if 'quality_score' in self.df.columns else 100
-        
-        html_content = template.render(
-            generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
-            total_records=len(self.df),
-            categories_count=self.df['category'].nunique(),
-            suppliers_count=self.df['supplier_name'].nunique(),
-            cities_count=self.df['city'].nunique(),
-            avg_price=avg_price_str,
-            quality_score=f"{quality_score:.0f}",
-            insights=self.insights,
-            category_stats=category_stats
-        )
-        
-        filepath = REPORTS_DIR / "analysis_report.html"
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        return str(filepath)
+'''
+        return html
 
 
 class AdvancedEDAEngine:
-    """
-    Main EDA orchestrator.
-    
-    Combines all analysis components into a cohesive pipeline.
-    """
+    """Main orchestrator for the complete EDA pipeline."""
     
     def __init__(self):
-        self.df: Optional[pd.DataFrame] = None
-        self.insights: List[str] = []
+        self.df = None
+        self.insights = []
+        self.results = {}
         
     def load_data(self) -> bool:
         """Load data from database or CSV."""
         try:
-            # Try database first
             products = db_manager.get_all_products()
             if products:
                 self.df = pd.DataFrame(products)
-                print(f"[OK] Loaded {len(self.df)} records from database")
+                self._clean_data()
+                print(f"[OK] Loaded {len(self.df):,} records from database")
                 return True
         except Exception as e:
             print(f"[WARN] Database load failed: {e}")
         
-        # Fallback to CSV
         csv_path = DATA_DIR / "collected_data.csv"
         if csv_path.exists():
             self.df = pd.read_csv(csv_path)
-            print(f"[OK] Loaded {len(self.df)} records from CSV")
+            self._clean_data()
+            print(f"[OK] Loaded {len(self.df):,} records from CSV")
             return True
         
         print("[ERROR] No data found. Run collector first.")
         return False
     
+    def _clean_data(self):
+        """Clean data by removing columns with unhashable types."""
+        cols_to_drop = []
+        for col in self.df.columns:
+            try:
+                sample = self.df[col].dropna().head(10)
+                if len(sample) > 0 and isinstance(sample.iloc[0], (list, dict)):
+                    cols_to_drop.append(col)
+            except:
+                pass
+        if cols_to_drop:
+            self.df = self.df.drop(columns=cols_to_drop, errors='ignore')
+            print(f"[INFO] Dropped {len(cols_to_drop)} columns with list types: {cols_to_drop}")
+    
     def run(self):
-        """Execute the full EDA pipeline."""
-        from rich.console import Console
-        from rich.progress import Progress
-        
-        console = Console()
-        
-        console.print("\n[bold magenta]Advanced EDA & Analytics Engine[/bold magenta]")
-        console.print("=" * 50)
+        """Execute the complete advanced analytics pipeline."""
+        print("\n" + "=" * 75)
+        print("   SLOOZE ULTRA-ADVANCED ANALYTICS ENGINE v4.0")
+        print("   Comprehensive Data Analysis Pipeline")
+        print("=" * 75)
         
         if not self.load_data():
             return
         
-        with Progress() as progress:
-            task = progress.add_task("[cyan]Running analysis...", total=6)
-            
-            # 1. Statistical Analysis
-            progress.update(task, description="[cyan]Computing statistics...")
-            stats_analyzer = StatisticalAnalyzer(self.df)
-            stats_analyzer.compute_summary_stats()
-            stats_analyzer.price_distribution_analysis()
-            self.insights.extend(stats_analyzer.insights)
-            progress.advance(task)
-            
-            # 2. Generate Visualizations
-            progress.update(task, description="[cyan]Creating visualizations...")
-            viz_engine = VisualizationEngine(self.df)
-            viz_engine.create_price_distribution()
-            viz_engine.create_regional_heatmap()
-            viz_engine.create_supplier_analysis()
-            viz_engine.create_category_sunburst()
-            viz_engine.create_static_charts()
-            progress.advance(task)
-            
-            # 3. NLP Analysis
-            progress.update(task, description="[cyan]Analyzing text data...")
-            nlp_analyzer = NLPAnalyzer(self.df)
-            nlp_analyzer.generate_word_cloud()
-            keywords = nlp_analyzer.extract_keywords()
-            if keywords:
-                top_keywords = list(keywords.keys())[:5]
-                self.insights.append(f"[Keywords] Top product keywords: {', '.join(top_keywords)}")
-            progress.advance(task)
-            
-            # 4. Clustering
-            progress.update(task, description="[cyan]Segmenting products...")
-            clustering = ClusteringEngine(self.df)
-            self.df = clustering.perform_price_clustering()
-            clustering.visualize_clusters()
-            
-            segment_counts = self.df['price_segment'].value_counts()
-            top_segment = segment_counts.index[0] if len(segment_counts) > 0 else "N/A"
-            self.insights.append(f"[Segment] Largest market segment: {top_segment} ({segment_counts.iloc[0]} products)")
-            progress.advance(task)
-            
-            # 5. Generate more insights
-            progress.update(task, description="[cyan]Generating insights...")
-            self._generate_additional_insights()
-            progress.advance(task)
-            
-            # 6. Generate Report
-            progress.update(task, description="[cyan]Compiling report...")
-            report_gen = ReportGenerator(self.df, self.insights)
-            report_path = report_gen.generate()
-            progress.advance(task)
+        # Phase 1: Statistical Analysis
+        print("\n[1/5] STATISTICAL ANALYSIS")
+        print("-" * 40)
+        stats_engine = AdvancedStatisticalEngine(self.df)
+        self.results['statistics'] = stats_engine.run_complete_analysis()
+        self.insights.extend(stats_engine.insights)
+        print(f"       Collected {len(stats_engine.insights)} statistical insights")
         
-        console.print("\n[bold green]Analysis Complete![/bold green]")
-        console.print(f"\n[bold]Report:[/bold] {report_path}")
-        console.print(f"[bold]Charts:[/bold] {CHARTS_DIR}")
+        # Phase 2: Machine Learning Clustering
+        print("\n[2/5] MACHINE LEARNING CLUSTERING")
+        print("-" * 40)
+        clustering_engine = AdvancedClusteringEngine(self.df)
+        self.df = clustering_engine.run_complete_analysis()
+        self.results['clustering'] = clustering_engine.results
+        self.insights.extend(clustering_engine.insights)
+        print(f"       Collected {len(clustering_engine.insights)} clustering insights")
         
-        console.print("\n[bold yellow]Key Insights:[/bold yellow]")
-        for insight in self.insights[:5]:
-            console.print(f"  • {insight}")
-    
-    def _generate_additional_insights(self):
-        """Generate additional business insights."""
-        # Top city
-        top_city = self.df['city'].value_counts().index[0]
-        top_city_count = self.df['city'].value_counts().iloc[0]
-        self.insights.append(f"[Region] Leading manufacturing hub: {top_city} with {top_city_count} listings")
+        # Phase 3: NLP Analysis
+        print("\n[3/5] NLP & TEXT ANALYSIS")
+        print("-" * 40)
+        nlp_engine = NLPAnalyzer(self.df)
+        self.results['nlp'] = nlp_engine.analyze()
+        self.insights.extend(nlp_engine.insights)
+        print(f"       Collected {len(nlp_engine.insights)} NLP insights")
         
-        # Verified suppliers
-        verified_pct = (self.df['supplier_verified'].sum() / len(self.df)) * 100
-        self.insights.append(f"[Verified] {verified_pct:.1f}% of products are from verified suppliers")
+        # Phase 4: Visualization Generation
+        print("\n[4/5] VISUALIZATION GENERATION")
+        print("-" * 40)
+        viz_engine = VisualizationEngine(self.df)
+        charts, static_charts, wordcloud_b64 = viz_engine.create_all()
+        print(f"       Generated {len(charts)} interactive charts")
+        print(f"       Generated {len(static_charts)} static charts")
         
-        # Price range
-        min_price = self.df['price_min'].min()
-        max_price = self.df['price_max'].max()
-        self.insights.append(f"[Price] Range: Rs {min_price:,.0f} to Rs {max_price:,.0f}")
+        # Phase 5: Report Generation
+        print("\n[5/5] REPORT GENERATION")
+        print("-" * 40)
+        report_gen = MegaReportGenerator(
+            self.df, self.insights, charts, static_charts, wordcloud_b64
+        )
+        report_path = report_gen.generate()
+        
+        # Summary
+        print("\n" + "=" * 75)
+        print("   ANALYSIS COMPLETE!")
+        print("=" * 75)
+        print(f"\n   Report: {report_path}")
+        print(f"   Total Insights: {len(self.insights)}")
+        print(f"   Total Charts: {len(charts) + len(static_charts)}")
+        
+        print("\n   TOP INSIGHTS:")
+        for i, insight in enumerate(self.insights[:8], 1):
+            print(f"   {i}. {insight}")
+        
+        print("\n" + "=" * 75)
 
 
 def main():
     """CLI entry point."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('logs/eda.log'),
-            logging.StreamHandler()
-        ]
-    )
-    
     engine = AdvancedEDAEngine()
     engine.run()
 
