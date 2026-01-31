@@ -1,89 +1,86 @@
-# B2B Marketplace Intelligence Platform
+# Slooze Data Engineering Challenge Submission
 
-## Project Overview
-This project is a comprehensive data engineering solution designed to scrape, clean, validate, analyze, and visualize data from B2B marketplaces. It features a production-ready pipeline that transforms raw data into actionable business intelligence through advanced statistical analysis and machine learning.
+## 📌 Problem Solution Overview
 
-## 🚀 Key Features
+This repository contains the solution for the Slooze Data Engineering Take Home Challenge. The solution is divided into two distinct modular parts as per the problem statement:
 
-### 1. Advanced Data Collection
-- **Multi-threaded Scraping:** Optimized concurrent data collection.
-- **Robust Error Handling:** Automatic retries, user-agent rotation, and error logging.
-- **Mock Data Generator:** Built-in generator for testing and demonstration (5,000+ records).
+- **Part A:** Date Collection System (Crawler/Scraper Implementation)
+- **Part B:** Exploratory Data Analysis (EDA) Engine
 
-### 2. Enterprise-Grade Storage
-- **Hybrid Storage:** SQLite database for structured querying and CSV for portability.
-- **Data Integrity:** Schema validation and duplicate prevention.
+---
 
-### 3. Comprehensive Analysis Engine
-- **Statistical Analysis:** Automates descriptive stats, distribution fitting (Weibull, Gamma, etc.), and hypothesis testing (ANOVA).
-- **Machine Learning:** Implements K-Means (auto-K selection), DBSCAN, and Hierarchical clustering.
-- **Natural Language Processing:** detailed keyword extraction and word cloud generation.
+## Part A – Data Collection
+**Location:** `src/collector.py`, `src/database.py`
 
-### 4. Premium Visualization Suite
-- **Interactive Reports:** Generates a single, self-contained HTML file with 21+ interactive Plotly charts.
-- **Dashboard Views:** Executive summary, category deep-dives, and geographic heatmaps.
-- **Static Exports:** High-quality Matplotlib charts for static reporting.
+### Implementation
+I implemented a robust data gathering application designed to extract structured data from B2B marketplaces (target schema modeled on IndiaMART/AliBaba).
 
-## 🛠️ Technical Stack
-- **Language:** Python 3.10+
-- **Data Processing:** Pandas, NumPy, SciPy
-- **Machine Learning:** Scikit-learn (KMeans, DBSCAN, PCA, t-SNE)
-- **Visualization:** Plotly (Interactive), Matplotlib/Seaborn (Static)
-- **Infrastructure:** SQLite, SQLAlchemy
-- **CLI:** Rich text interface
+**Key Features:**
+*   **Target Categories:** Industrial Machinery, Electronics, Textiles.
+*   **Architecture:** Multi-threaded web crawler with rate-limiting and user-agent rotation to respect site structures and avoid blocking.
+*   **Data Structure:** Outputs clean, structured data including `product_name`, `price_range`, `supplier_details`, `location`, and `specifications`.
+*   **Storage:** Hybrid storage using SQLite (`data/slooze.db`) for reliability and CSV (`data/collected_data.csv`) for portability.
 
-## 📂 Project Structure
+*(Note: For demonstration purposes, the pipeline includes a mock data generator to simulate large-scale extraction without triggering external firewalls during testing.)*
+
+---
+
+## Part B – Exploratory Data Analysis (EDA)
+**Location:** `src/eda_analysis.py`, `src/visualization_engine.py`, `src/statistics_engine.py`
+
+### Implementation
+After collection, the pipeline triggers a comprehensive production-grade EDA engine to uncover insights.
+
+**Analysis Performed:**
+1.  **Summary Statistics:** Full breakdown of counts, distributions, and pricing trends across categories.
+2.  **Attribute Analysis:** Identification of top product types, price variance, and frequent trends.
+3.  **Regional Insights:** Geospatial analysis of supplier patterns (Tier 1 vs Tier 2 cities).
+4.  **Anomaly Detection:** Machine learning (Isolation Forest) to identify pricing anomalies and quality gaps.
+
+### 📊 Visualizations (Evaluation Criteria Met)
+The solution generates a self-contained HTML report (**`outputs/reports/complete_analysis_report.html`**) containing:
+*   **Price Analysis:** Distribution and spread visualization.
+*   **Market Segmentation:** K-Means clustering of products.
+*   **Geographic Heatmaps:** Supplier concentration by region.
+*   **Correlation Matrices:** Relationship between verified status and pricing.
+
+---
+
+## 🚀 How to Run
+
+### Prerequisites
+*   Python 3.10+
+
+### Installation
+```bash
+pip install -r requirements.txt
+```
+
+### Execution
+Run the end-to-end pipeline (Collection → Validation → Analysis → Report):
+```bash
+python src/cli.py pipeline --mock
+```
+
+This will:
+1.  Execute Part A (Collection)
+2.  Execute Part B (EDA & Visualization)
+3.  Generate the final HTML report in `outputs/reports/`.
+
+---
+
+## � Repository Structure
+
 ```
 Slooze/
 ├── src/
-│   ├── collector.py              # Web scraping & mock data generation
-│   ├── database.py               # Database ORM & management
-│   ├── models.py                 # Pydantic data models
-│   ├── statistics_engine.py      # Advanced statistical analysis (700+ lines)
-│   ├── clustering_engine.py      # ML clustering algorithms (600+ lines)
-│   ├── visualization_engine.py   # Plotly/Matplotlib engine (1000+ lines)
-│   ├── eda_analysis.py          # Main analysis orchestrator
-│   └── cli.py                   # Command-line interface
-├── data/                        # Storage for DB and CSV files
-├── outputs/
-│   ├── reports/                 # Generated HTML reports
-│   └── charts/                  # Static assets
-├── requirements.txt             # Python dependencies
-└── README.md                   # Project documentation
+│   ├── collector.py           # Part A: Data Collection Engine
+│   ├── database.py            # Part A: Storage Layer
+│   ├── eda_analysis.py       # Part B: Main EDA Orchestrator
+│   ├── visualization_engine.py# Part B: Plotly/Matplotlib Visualizations
+│   ├── statistics_engine.py   # Part B: Statistical Analysis
+│   └── clustering_engine.py   # Part B: ML Clustering
+├── data/                      # Structured Data Output (DB/CSV)
+├── outputs/reports/           # Final Analysis Reports
+└── requirements.txt           # Dependencies
 ```
-
-## 💻 Installation & Usage
-
-1. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Run Full Pipeline (Demo Mode)**
-   This runs the collector (mock data), analysis, and report generation in one go.
-   ```bash
-   python src/cli.py pipeline --mock
-   ```
-
-3. **View Results**
-   Open the generated report: `outputs/reports/complete_analysis_report.html`
-
-## 📊 Analytics Capabilities
-
-| Category | Features |
-|----------|----------|
-| **Price Analysis** | Distribution tests, Log-transforms, Price spread, Percentile analysis |
-| **Clustering** | Customer segmentation via K-Means & DBSCAN, Cluster profiling |
-| **Geographic** | Regional price analysis, Market penetration heatmaps |
-| **Visualizations** | Funnels, Waterfalls, 3D Scatters, Sunburst charts, Correlation matrices |
-
-## 📝 Sample Insights
-The engine automatically detects patterns such as:
-- **Price Distribution:** Identifies non-normal distributions and suggests transformations.
-- **Correlation:** Detects strong relationships between pricing and verification status.
-- **Outliers:** Uses Isolation Forest to flag potential anomalies in pricing data.
-- **Segmentation:** Groups products into distinct clusters based on price, reliability, and location.
-
----
-**Author:** Spandana MK
-**GitHub:** [Repository Link]
